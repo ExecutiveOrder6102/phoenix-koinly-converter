@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag" // Import the flag package for command-line argument parsing
 	"fmt"
 	"io"
 	"log"
@@ -13,9 +14,14 @@ import (
 )
 
 const (
+	// koinlyDateFormat defines the date format required by Koinly CSV.
 	koinlyDateFormat  = "2006-01-02 15:04:05 Z"
+	// phoenixDateFormat defines the date format used in Phoenix CSV exports.
 	phoenixDateFormat = "2006-01-02T15:04:05.999Z"
 )
+
+// verbose enables or disables verbose logging.
+var verbose bool
 
 // KoinlyRecord represents a single row in the Koinly CSV file.
 type KoinlyRecord struct {
@@ -45,10 +51,15 @@ type PhoenixRecord struct {
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	// Define the verbose flag.
+	flag.BoolVar(&verbose, "v", false, "Enable verbose logging for debugging.")
+	flag.Parse() // Parse command-line arguments.
+
+	// Check if a file path is provided after parsing flags.
+	if flag.NArg() < 1 {
 		log.Fatal("Please provide the path to the Phoenix CSV file.")
 	}
-	filePath := os.Args[1]
+	filePath := flag.Arg(0) // Get the file path from the non-flag arguments.
 
 	// Read all records from the Phoenix CSV file.
 	phoenixRecords, err := readPhoenixCSV(filePath)
@@ -61,9 +72,17 @@ func main() {
 		log.Fatalf("Error creating Koinly CSV: %v", err)
 	}
 
-	
+	log.Println("Conversion complete: koinly.csv created successfully.")
 }
 
+// logVerbose prints messages only if the verbose flag is enabled.
+func logVerbose(format string, v ...interface{}) {
+	if verbose {
+		log.Printf(format, v...)
+	}
+}
+
+// readPhoenixCSV reads a CSV file from the given path and parses it into a slice of PhoenixRecord.
 func readPhoenixCSV(filePath string) ([]*PhoenixRecord, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -72,7 +91,7 @@ func readPhoenixCSV(filePath string) ([]*PhoenixRecord, error) {
 	defer f.Close()
 
 	r := csv.NewReader(f)
-	// Read header
+	// Read header row to skip it.
 	_, err = r.Read()
 	if err != nil {
 		return nil, err
@@ -81,7 +100,7 @@ func readPhoenixCSV(filePath string) ([]*PhoenixRecord, error) {
 	var records []*PhoenixRecord
 	for {
 		record, err := r.Read()
-		if err == io.EOF {
+		if err == io.EOF { // End of file reached.
 			break
 		}
 		if err != nil {
@@ -90,7 +109,8 @@ func readPhoenixCSV(filePath string) ([]*PhoenixRecord, error) {
 
 		phoenixRecord, err := parsePhoenixRecord(record)
 		if err != nil {
-			log.Printf("Error parsing record: %v", err)
+			// Log parsing errors but continue processing other records.
+			log.Printf("Error parsing record: %v. Skipping this record.", err)
 			continue
 		}
 		records = append(records, phoenixRecord)
@@ -98,6 +118,8 @@ func readPhoenixCSV(filePath string) ([]*PhoenixRecord, error) {
 	return records, nil
 }
 
+// createKoinlyCSV takes a slice of PhoenixRecord and writes them to a new CSV file
+// formatted for Koinly.
 func createKoinlyCSV(records []*PhoenixRecord, filePath string) error {
 	koinlyFile, err := os.Create(filePath)
 	if err != nil {
@@ -106,8 +128,9 @@ func createKoinlyCSV(records []*PhoenixRecord, filePath string) error {
 	defer koinlyFile.Close()
 
 	w := csv.NewWriter(koinlyFile)
-	defer w.Flush()
+	defer w.Flush() // Ensure all buffered writes are committed to the underlying writer.
 
+	// Define the header for the Koinly CSV file.
 	koinlyHeader := []string{
 		"Date",
 		"Sent Amount",
@@ -126,6 +149,7 @@ func createKoinlyCSV(records []*PhoenixRecord, filePath string) error {
 		return err
 	}
 
+	// Convert each Phoenix record to a Koinly record and write it to the CSV.
 	for _, p := range records {
 		koinlyRecord := toKoinlyRecord(p)
 		if err := w.Write(koinlyRecord.toStringSlice()); err != nil {
@@ -135,24 +159,33 @@ func createKoinlyCSV(records []*PhoenixRecord, filePath string) error {
 	return nil
 }
 
+// parsePhoenixRecord converts a slice of strings (a row from Phoenix CSV) into a PhoenixRecord struct.
 func parsePhoenixRecord(record []string) (*PhoenixRecord, error) {
+	// Parse timestamp.
 	timestamp, err := time.Parse(phoenixDateFormat, record[0])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse timestamp '%s': %w", record[0], err)
 	}
 
+	// Parse amount in millisats, handling potential commas.
 	amountMillisats, err := strconv.ParseInt(strings.ReplaceAll(record[3], ",", ""), 10, 64)
 	if err != nil {
+		// If parsing fails, default to 0 and log the error.
+		logVerbose("Warning: Failed to parse AmountMillisats '%s'. Defaulting to 0. Error: %v", record[3], err)
 		amountMillisats = 0
 	}
 
+	// Parse mining fee in sats, handling potential commas.
 	miningFeeSat, err := strconv.ParseInt(strings.ReplaceAll(record[6], ",", ""), 10, 64)
 	if err != nil {
+		logVerbose("Warning: Failed to parse MiningFeeSat '%s'. Defaulting to 0. Error: %v", record[6], err)
 		miningFeeSat = 0
 	}
 
+	// Parse service fee in millisats, handling potential commas.
 	serviceFeeMsat, err := strconv.ParseInt(strings.ReplaceAll(record[8], ",", ""), 10, 64)
 	if err != nil {
+		logVerbose("Warning: Failed to parse ServiceFeeMsat '%s'. Defaulting to 0. Error: %v", record[8], err)
 		serviceFeeMsat = 0
 	}
 
@@ -167,52 +200,56 @@ func parsePhoenixRecord(record []string) (*PhoenixRecord, error) {
 	}, nil
 }
 
-	func toKoinlyRecord(p *PhoenixRecord) *KoinlyRecord {
-	// Note: Fees are included in the sent/received amounts and not tracked separately.
-	// This is because Phoenix transactions often bundle fees into the total amount.
+// toKoinlyRecord converts a PhoenixRecord into a KoinlyRecord.
+// It maps different Phoenix transaction types to appropriate Koinly fields (Sent, Received, Fee).
+func toKoinlyRecord(p *PhoenixRecord) *KoinlyRecord {
+	// Note: Fees are often included in the sent/received amounts in Phoenix,
+	// so they are not always tracked separately in Koinly unless explicitly a fee-only transaction.
 	k := &KoinlyRecord{
 		Date:        p.Timestamp.Format(koinlyDateFormat),
 		TxHash:      p.TransactionID,
 		Description: p.Description,
 	}
 
+	// Convert amount from millisats to sats.
 	sats := float64(p.AmountMillisats) / 1000
 
-	log.Printf("Phoenix Record: %+v", p)
-	log.Printf("Calculated: sats=%.8f", sats)
+	logVerbose("Processing Phoenix Record: %+v", p)
+	logVerbose("Calculated Sats: %.8f", sats)
 
+	// Determine the Koinly record type based on Phoenix transaction type.
 	switch p.Type {
 	case "lightning_received":
-		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000)
+		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000) // Convert sats to BTC.
 		k.ReceivedCurrency = "BTC"
 		k.Label = "lightning"
-		log.Printf("lightning_received: ReceivedAmount=%s", k.ReceivedAmount)
+		logVerbose("Type: lightning_received -> ReceivedAmount=%s BTC", k.ReceivedAmount)
 	case "lightning_sent":
-		// amount_msat is negative and includes the service fee.
+		// For sent transactions, amount_msat is negative. Use absolute value.
 		k.SentAmount = fmt.Sprintf("%.8f", math.Abs(sats)/100000000)
 		k.SentCurrency = "BTC"
 		k.Label = "lightning"
-		log.Printf("lightning_sent: SentAmount=%s", k.SentAmount)
+		logVerbose("Type: lightning_sent -> SentAmount=%s BTC", k.SentAmount)
 	case "swap_in", "legacy_swap_in":
-		// amount_msat is positive, and the mining_fee_sat is already accounted for.
+		// Swap-in is a receipt of funds.
 		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000)
 		k.ReceivedCurrency = "BTC"
 		k.Label = "transfer"
-		log.Printf("swap_in/legacy_swap_in: ReceivedAmount=%s", k.ReceivedAmount)
+		logVerbose("Type: %s -> ReceivedAmount=%s BTC", p.Type, k.ReceivedAmount)
 	case "swap_out":
-		// amount_msat is negative, and the mining_fee_sat is already accounted for.
+		// Swap-out is a sending of funds.
 		k.SentAmount = fmt.Sprintf("%.8f", math.Abs(sats)/100000000)
 		k.SentCurrency = "BTC"
 		k.Label = "transfer"
-		log.Printf("swap_out: SentAmount=%s", k.SentAmount)
+		logVerbose("Type: swap_out -> SentAmount=%s BTC", k.SentAmount)
 	case "channel_open", "legacy_pay_to_open":
-		// Channel open involves a received amount, and the service fee is already accounted for.
+		// Channel open is treated as a deposit.
 		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000)
 		k.ReceivedCurrency = "BTC"
 		k.Label = "deposit"
-		log.Printf("channel_open/legacy_pay_to_open: ReceivedAmount=%s", k.ReceivedAmount)
+		logVerbose("Type: %s -> ReceivedAmount=%s BTC", p.Type, k.ReceivedAmount)
 	case "channel_close":
-		// Koinly expects only the fee to be tracked, no balance change.
+		// Channel close is treated as a cost (fee) in Koinly, as it's often just a fee settlement.
 		k.SentAmount = ""
 		k.SentCurrency = ""
 		k.ReceivedAmount = ""
@@ -220,14 +257,17 @@ func parsePhoenixRecord(record []string) (*PhoenixRecord, error) {
 		k.FeeAmount = fmt.Sprintf("%.8f", math.Abs(sats)/100000000)
 		k.FeeCurrency = "BTC"
 		k.Label = "cost"
-		log.Printf("channel_close: FeeAmount=%s", k.FeeAmount)
+		logVerbose("Type: channel_close -> FeeAmount=%s BTC", k.FeeAmount)
 	default:
-		log.Printf("Unknown transaction type for Koinly conversion: %s", p.Type)
+		// Log unknown transaction types for awareness.
+		log.Printf("Unknown transaction type for Koinly conversion: %s. This transaction will not be fully converted.", p.Type)
 	}
 
 	return k
 }
 
+// toStringSlice converts a KoinlyRecord struct into a slice of strings,
+// suitable for writing as a row in a CSV file.
 func (k *KoinlyRecord) toStringSlice() []string {
 	return []string{
 		k.Date,

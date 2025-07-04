@@ -1,0 +1,7 @@
+Timestamp,ref,type,amount_msat,unused1,unused2,MiningFeeSat,unused3,ServiceFeeMsat,unused4,unused5,transaction_id,unused6,description
+2025-01-01T00:00:00.000Z,foo,lightning_received,50000000,bar,baz,0,x,0,y,z,tx1,zz,First receive
+2025-01-02T00:00:00.000Z,foo,lightning_sent,-20000000,bar,baz,10,x,0,y,z,tx2,zz,Sent payment
+2025-01-03T00:00:00.000Z,foo,swap_in,100000000,bar,baz,0,x,0,y,z,tx3,zz,Swap in
+2025-01-04T00:00:00.000Z,foo,swap_out,-50000000,bar,baz,5,x,2000,y,z,tx4,zz,Swap out
+2025-01-05T00:00:00.000Z,foo,channel_open,80000000,bar,baz,0,x,0,y,z,tx5,zz,Open channel
+2025-01-06T00:00:00.000Z,foo,channel_close,-3000000,bar,baz,3,x,0,y,z,tx6,zz,Close channel

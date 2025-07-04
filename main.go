@@ -15,7 +15,7 @@ import (
 
 const (
 	// koinlyDateFormat defines the date format required by Koinly CSV.
-	koinlyDateFormat  = "2006-01-02 15:04:05 Z"
+	koinlyDateFormat = "2006-01-02 15:04:05 Z"
 	// phoenixDateFormat defines the date format used in Phoenix CSV exports.
 	phoenixDateFormat = "2006-01-02T15:04:05.999Z"
 )
@@ -41,13 +41,13 @@ type KoinlyRecord struct {
 
 // PhoenixRecord represents a single row in the Phoenix CSV file.
 type PhoenixRecord struct {
-	Timestamp      time.Time
-	Type           string
+	Timestamp       time.Time
+	Type            string
 	AmountMillisats int64
-	MiningFeeSat   int64
-	ServiceFeeMsat int64
-	TransactionID  string
-	Description    string
+	MiningFeeSat    int64
+	ServiceFeeMsat  int64
+	TransactionID   string
+	Description     string
 }
 
 func main() {
@@ -190,13 +190,13 @@ func parsePhoenixRecord(record []string) (*PhoenixRecord, error) {
 	}
 
 	return &PhoenixRecord{
-		Timestamp:      timestamp,
-		Type:           record[2],
+		Timestamp:       timestamp,
+		Type:            record[2],
 		AmountMillisats: amountMillisats,
-		MiningFeeSat:   miningFeeSat,
-		ServiceFeeMsat: serviceFeeMsat,
-		TransactionID:  record[11],
-		Description:    record[13],
+		MiningFeeSat:    miningFeeSat,
+		ServiceFeeMsat:  serviceFeeMsat,
+		TransactionID:   record[11],
+		Description:     record[13],
 	}, nil
 }
 
@@ -284,7 +284,3 @@ func (k *KoinlyRecord) toStringSlice() []string {
 		k.TxHash,
 	}
 }
-
-
-
-

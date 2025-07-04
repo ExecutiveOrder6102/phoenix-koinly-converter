@@ -18,6 +18,8 @@ const (
 	koinlyDateFormat = "2006-01-02 15:04:05 Z"
 	// phoenixDateFormat defines the date format used in Phoenix CSV exports.
 	phoenixDateFormat = "2006-01-02T15:04:05.999Z"
+	satsPerBTC        = 100000000
+	msatsPerSat       = 1000
 )
 
 // verbose enables or disables verbose logging.
@@ -48,6 +50,21 @@ type PhoenixRecord struct {
 	ServiceFeeMsat  int64
 	TransactionID   string
 	Description     string
+}
+
+// parseIntField parses an integer field with commas.
+func parseIntField(val, name string) int64 {
+	v, err := strconv.ParseInt(strings.ReplaceAll(val, ",", ""), 10, 64)
+	if err != nil {
+		logVerbose("Warning: failed to parse %s '%s': %v", name, val, err)
+		return 0
+	}
+	return v
+}
+
+// formatBTC formats sats to a BTC string.
+func formatBTC(sats float64) string {
+	return fmt.Sprintf("%.8f", sats/satsPerBTC)
 }
 
 func main() {
@@ -167,27 +184,9 @@ func parsePhoenixRecord(record []string) (*PhoenixRecord, error) {
 		return nil, fmt.Errorf("failed to parse timestamp '%s': %w", record[0], err)
 	}
 
-	// Parse amount in millisats, handling potential commas.
-	amountMillisats, err := strconv.ParseInt(strings.ReplaceAll(record[3], ",", ""), 10, 64)
-	if err != nil {
-		// If parsing fails, default to 0 and log the error.
-		logVerbose("Warning: Failed to parse AmountMillisats '%s'. Defaulting to 0. Error: %v", record[3], err)
-		amountMillisats = 0
-	}
-
-	// Parse mining fee in sats, handling potential commas.
-	miningFeeSat, err := strconv.ParseInt(strings.ReplaceAll(record[6], ",", ""), 10, 64)
-	if err != nil {
-		logVerbose("Warning: Failed to parse MiningFeeSat '%s'. Defaulting to 0. Error: %v", record[6], err)
-		miningFeeSat = 0
-	}
-
-	// Parse service fee in millisats, handling potential commas.
-	serviceFeeMsat, err := strconv.ParseInt(strings.ReplaceAll(record[8], ",", ""), 10, 64)
-	if err != nil {
-		logVerbose("Warning: Failed to parse ServiceFeeMsat '%s'. Defaulting to 0. Error: %v", record[8], err)
-		serviceFeeMsat = 0
-	}
+	amountMillisats := parseIntField(record[3], "amount_msat")
+	miningFeeSat := parseIntField(record[6], "mining_fee_sat")
+	serviceFeeMsat := parseIntField(record[8], "service_fee_msat")
 
 	return &PhoenixRecord{
 		Timestamp:       timestamp,
@@ -212,39 +211,39 @@ func toKoinlyRecord(p *PhoenixRecord) *KoinlyRecord {
 	}
 
 	// Convert amount from millisats to sats.
-	sats := float64(p.AmountMillisats) / 1000
-
+	sats := float64(p.AmountMillisats) / msatsPerSat
+	absSats := math.Abs(sats)
 	logVerbose("Processing Phoenix Record: %+v", p)
 	logVerbose("Calculated Sats: %.8f", sats)
 
 	// Determine the Koinly record type based on Phoenix transaction type.
 	switch p.Type {
 	case "lightning_received":
-		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000) // Convert sats to BTC.
+		k.ReceivedAmount = formatBTC(sats)
 		k.ReceivedCurrency = "BTC"
 		k.Label = "lightning"
 		logVerbose("Type: lightning_received -> ReceivedAmount=%s BTC", k.ReceivedAmount)
 	case "lightning_sent":
 		// For sent transactions, amount_msat is negative. Use absolute value.
-		k.SentAmount = fmt.Sprintf("%.8f", math.Abs(sats)/100000000)
+		k.SentAmount = formatBTC(absSats)
 		k.SentCurrency = "BTC"
 		k.Label = "lightning"
 		logVerbose("Type: lightning_sent -> SentAmount=%s BTC", k.SentAmount)
 	case "swap_in", "legacy_swap_in":
 		// Swap-in is a receipt of funds.
-		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000)
+		k.ReceivedAmount = formatBTC(sats)
 		k.ReceivedCurrency = "BTC"
 		k.Label = "transfer"
 		logVerbose("Type: %s -> ReceivedAmount=%s BTC", p.Type, k.ReceivedAmount)
 	case "swap_out":
 		// Swap-out is a sending of funds.
-		k.SentAmount = fmt.Sprintf("%.8f", math.Abs(sats)/100000000)
+		k.SentAmount = formatBTC(absSats)
 		k.SentCurrency = "BTC"
 		k.Label = "transfer"
 		logVerbose("Type: swap_out -> SentAmount=%s BTC", k.SentAmount)
 	case "channel_open", "legacy_pay_to_open":
 		// Channel open is treated as a deposit.
-		k.ReceivedAmount = fmt.Sprintf("%.8f", sats/100000000)
+		k.ReceivedAmount = formatBTC(sats)
 		k.ReceivedCurrency = "BTC"
 		k.Label = "deposit"
 		logVerbose("Type: %s -> ReceivedAmount=%s BTC", p.Type, k.ReceivedAmount)
@@ -254,7 +253,7 @@ func toKoinlyRecord(p *PhoenixRecord) *KoinlyRecord {
 		k.SentCurrency = ""
 		k.ReceivedAmount = ""
 		k.ReceivedCurrency = ""
-		k.FeeAmount = fmt.Sprintf("%.8f", math.Abs(sats)/100000000)
+		k.FeeAmount = formatBTC(absSats)
 		k.FeeCurrency = "BTC"
 		k.Label = "cost"
 		logVerbose("Type: channel_close -> FeeAmount=%s BTC", k.FeeAmount)

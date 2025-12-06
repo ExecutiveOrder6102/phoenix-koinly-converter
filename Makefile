@@ -11,6 +11,3 @@ build-wasm:
 
 clean:
 	rm -f phoenix-koinly-converter web/main.wasm koinly.csv
-
-deploy: build-wasm
-	npx wrangler pages deploy web --project-name phoenix-koinly-converter

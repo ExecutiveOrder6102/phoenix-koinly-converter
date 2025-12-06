@@ -74,13 +74,13 @@ func LogVerbose(format string, v ...interface{}) {
 }
 
 // Convert handles the core conversion logic from a reader to a writer.
-func Convert(r io.Reader, w io.Writer) error {
+func Convert(r io.Reader, w io.Writer, addRoundingCost bool) error {
 	phoenixRecords, err := ReadPhoenixCSV(r)
 	if err != nil {
 		return fmt.Errorf("reading phoenix csv: %w", err)
 	}
 
-	if err := CreateKoinlyCSV(phoenixRecords, w); err != nil {
+	if err := CreateKoinlyCSV(phoenixRecords, w, addRoundingCost); err != nil {
 		return fmt.Errorf("creating koinly csv: %w", err)
 	}
 	return nil
@@ -118,7 +118,7 @@ func ReadPhoenixCSV(r io.Reader) ([]*PhoenixRecord, error) {
 
 // CreateKoinlyCSV takes a slice of PhoenixRecord and writes them to a new CSV file
 // formatted for Koinly.
-func CreateKoinlyCSV(records []*PhoenixRecord, w io.Writer) error {
+func CreateKoinlyCSV(records []*PhoenixRecord, w io.Writer, addCost bool) error {
 	writer := csv.NewWriter(w)
 	defer writer.Flush() // Ensure all buffered writes are committed to the underlying writer.
 
@@ -141,11 +141,29 @@ func CreateKoinlyCSV(records []*PhoenixRecord, w io.Writer) error {
 		return err
 	}
 
+	var roundingDiff float64
 	// Convert each Phoenix record to a Koinly record and write it to the CSV.
 	for _, p := range records {
-		koinlyRecord, _ := ToKoinlyRecord(p)
+		koinlyRecord, diff := ToKoinlyRecord(p)
+		roundingDiff += diff
 		if err := writer.Write(koinlyRecord.ToStringSlice()); err != nil {
 			return err
+		}
+	}
+
+	if addCost {
+		roundingSats := int64(math.Round(math.Abs(roundingDiff)))
+		if roundingSats > 0 {
+			costRecord := &KoinlyRecord{
+				Date:        time.Now().UTC().Format(KoinlyDateFormat),
+				FeeAmount:   FormatBTC(float64(roundingSats)),
+				FeeCurrency: "BTC",
+				Label:       "cost",
+				Description: "Adjustment for rounding differences",
+			}
+			if err := writer.Write(costRecord.ToStringSlice()); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

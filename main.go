@@ -9,8 +9,11 @@ import (
 )
 
 func main() {
+
 	// Define command line flags.
 	flag.BoolVar(&converter.Verbose, "v", false, "Enable verbose logging for debugging.")
+	addRoundingCost := flag.Bool("r", false, "Add a cost entry adjusting for rounding differences.")
+	flag.BoolVar(addRoundingCost, "rounding-cost", false, "Alias for -r")
 	flag.Parse() // Parse command-line arguments.
 
 	// Check if a file path is provided after parsing flags.
@@ -32,7 +35,7 @@ func main() {
 	}
 	defer koinlyFile.Close()
 
-	if err := converter.Convert(f, koinlyFile); err != nil {
+	if err := converter.Convert(f, koinlyFile, *addRoundingCost); err != nil {
 		log.Fatalf("Conversion failed: %v", err)
 	}
 

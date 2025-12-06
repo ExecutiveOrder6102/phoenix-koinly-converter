@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phoenix to Koinly Converter</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="wasm_exec.js"></script>
+    <script src="app.js" defer></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Phoenix to Koinly Converter</h1>
+            <p>Convert your Phoenix Wallet CSV exports to Koinly-compatible format entirely in your browser.</p>
+        </header>
+
+        <main>
+            <div class="upload-area" id="drop-zone">
+                <input type="file" id="file-input" accept=".csv" hidden>
+                <div class="icon">📂</div>
+                <p>Drag & Drop your <strong>phoenix.csv</strong> here</p>
+                <p class="small">or click to browse</p>
+            </div>
+
+            <div class="options">
+                <!-- Options can go here -->
+            </div>
+
+            <div id="status" class="status hidden"></div>
+
+            <div id="result-area" class="hidden">
+                <button id="download-btn" class="primary-btn">Download koinly.csv</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Runs locally. No data leaves your device.</p>
+            <p>Don't trust me? Good! Check the <a href="https://github.com/ExecutiveOrder6102/phoenix-koinly-converter"
+                    target="_blank" rel="noopener noreferrer">repo</a> and run it yourself!</p>
+        </footer>
+    </div>
+</body>
+
+</html>

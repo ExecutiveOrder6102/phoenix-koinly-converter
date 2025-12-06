@@ -1,7 +1,9 @@
-package main
+package converter
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -24,7 +26,7 @@ func TestParsePhoenixRecord(t *testing.T) {
 		"unused7",
 		"test description", // description
 	}
-	p, err := parsePhoenixRecord(record)
+	p, err := ParsePhoenixRecord(record)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +46,10 @@ func TestToKoinlyRecordLightningReceived(t *testing.T) {
 		TransactionID:   "tx1",
 		Description:     "desc",
 	}
-	k := toKoinlyRecord(p)
+	k, diff := ToKoinlyRecord(p)
+	if math.Abs(diff) > 1e-9 {
+		t.Errorf("expected zero rounding diff, got %f", diff)
+	}
 	if k.ReceivedAmount != "0.01000000" || k.ReceivedCurrency != "BTC" || k.Label != "lightning" {
 		t.Errorf("unexpected koinly record: %+v", k)
 	}
@@ -58,7 +63,10 @@ func TestToKoinlyRecordLightningSent(t *testing.T) {
 		TransactionID:   "tx2",
 		Description:     "desc",
 	}
-	k := toKoinlyRecord(p)
+	k, diff := ToKoinlyRecord(p)
+	if math.Abs(diff) > 1e-9 {
+		t.Errorf("expected zero rounding diff, got %f", diff)
+	}
 	if k.SentAmount != "0.00200000" || k.SentCurrency != "BTC" || k.Label != "lightning" {
 		t.Errorf("unexpected koinly record: %+v", k)
 	}
@@ -72,20 +80,33 @@ func TestToKoinlyRecordChannelClose(t *testing.T) {
 		TransactionID:   "tx3",
 		Description:     "desc",
 	}
-	k := toKoinlyRecord(p)
+	k, diff := ToKoinlyRecord(p)
+	if math.Abs(diff) > 1e-9 {
+		t.Errorf("expected zero rounding diff, got %f", diff)
+	}
 	if k.FeeAmount != "0.00000150" || k.FeeCurrency != "BTC" || k.Label != "cost" {
 		t.Errorf("unexpected koinly record: %+v", k)
 	}
 }
 
 func TestFinalBalanceSampleCSV(t *testing.T) {
-	records, err := readPhoenixCSV("testdata/sample_phoenix.csv")
+	// Need to fix path to testdata since we are in converter package
+	f, err := os.Open(filepath.Join("..", "testdata", "sample_phoenix.csv"))
 	if err != nil {
 		t.Fatalf("failed to read csv: %v", err)
 	}
+	defer f.Close()
+
+	records, err := ReadPhoenixCSV(f)
+	if err != nil {
+		t.Fatalf("failed to read csv records: %v", err)
+	}
 	var total float64
 	for _, p := range records {
-		k := toKoinlyRecord(p)
+		k, diff := ToKoinlyRecord(p)
+		if math.Abs(diff) > 1e-9 {
+			t.Errorf("unexpected rounding diff %f", diff)
+		}
 		if k.ReceivedAmount != "" {
 			v, err := strconv.ParseFloat(k.ReceivedAmount, 64)
 			if err != nil {

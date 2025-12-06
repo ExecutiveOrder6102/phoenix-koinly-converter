@@ -33,3 +33,8 @@ go.work.sum
 
 *.csv
 !testdata/*.csv
+
+# Build artifacts
+phoenix-koinly-converter
+web/main.wasm
+web/wasm_exec.js

@@ -1,0 +1,125 @@
+:root {
+    --bg-color: #1a1a1a;
+    --card-bg: #2d2d2d;
+    --text-color: #e0e0e0;
+    --accent-color: #f7931a; /* Bitcoin Orange */
+    --accent-hover: #e8860c;
+    --border-color: #444;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+}
+
+header h1 {
+    margin-top: 0;
+    color: var(--accent-color);
+}
+
+header p {
+    color: #aeaeae;
+    font-size: 0.9rem;
+}
+
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 2rem 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent-color);
+    background-color: rgba(247, 147, 26, 0.05);
+}
+
+.upload-area .icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.upload-area p {
+    margin: 0.2rem 0;
+}
+
+.upload-area .small {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.options {
+    text-align: left;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.checkbox-container input {
+    margin-right: 0.5rem;
+    accent-color: var(--accent-color);
+}
+
+.primary-btn {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width: 100%;
+}
+
+.primary-btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.status {
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.status.error {
+    color: #ff5252;
+}
+
+.status.success {
+    color: #4caf50;
+}
+
+.hidden {
+    display: none;
+}
+
+footer {
+    margin-top: 2rem;
+    font-size: 0.8rem;
+    color: #666;
+}

@@ -51,8 +51,9 @@ function handleFile(file) {
     const reader = new FileReader();
     reader.onload = async (e) => {
         const content = e.target.result;
+        const addRoundingCost = document.getElementById('rounding-checkbox').checked;
         try {
-            const output = convertPhoenixToKoinly(content);
+            const output = convertPhoenixToKoinly(content, addRoundingCost);
 
             if (output.startsWith("Error")) {
                 showStatus(output, "error");

@@ -17,13 +17,18 @@ func convertPhoenixToKoinly(this js.Value, args []js.Value) interface{} {
 	}
 	inputCSV := args[0].String()
 
+	addRoundingCost := false
+	if len(args) > 1 && args[1].Truthy() {
+		addRoundingCost = args[1].Bool()
+	}
+
 	r := strings.NewReader(inputCSV)
 	var buf bytes.Buffer
 
 	// Enable verbose if needed, though we don't capture logs here easily unless we redirect log output.
 	// converter.Verbose = true
 
-	if err := converter.Convert(r, &buf); err != nil {
+	if err := converter.Convert(r, &buf, addRoundingCost); err != nil {
 		return fmt.Sprintf("Error converting: %v", err)
 	}
 
